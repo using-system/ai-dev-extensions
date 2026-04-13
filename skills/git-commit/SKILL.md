@@ -52,6 +52,55 @@ Breaking changes trigger a **MAJOR** version bump.
 
 ## Rules
 
+### 0. Never commit directly on the default branch
+
+Before committing, check the current branch:
+
+```bash
+git branch --show-current
+```
+
+If you are on the default branch (`main` or `master`), you **MUST** create and switch to a new branch before committing. The branch name MUST follow the convention:
+
+```
+<type>/<short-description>
+```
+
+Where `<type>` matches the Conventional Commits type of the work being done.
+
+```bash
+# BAD - committing on main
+git commit -m "feat: add login page"
+
+# GOOD - create branch first, then commit
+git checkout -b feat/add-login-page
+git commit -m "feat: add login page"
+```
+
+#### Branch naming rules
+
+- Use the same type as the commit (`feat`, `fix`, `perf`, `docs`, `refactor`, `ci`, `test`, `build`, `chore`)
+- Description is lowercase, words separated by hyphens
+- Keep it short but descriptive (3-5 words max)
+
+```bash
+# Examples
+feat/oauth2-login-flow
+fix/null-response-payment
+perf/optimize-query-cache
+docs/add-installation-guide
+refactor/extract-auth-middleware
+ci/pin-actions-to-sha
+```
+
+#### Detecting the default branch
+
+Use this command to determine the default branch:
+
+```bash
+git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@refs/remotes/origin/@@' || echo "main"
+```
+
 ### 1. Type is mandatory
 
 ```bash
