@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Conventional Commits validation hook
+# Format: <type>(<scope>): <description>
+# Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
+# Breaking change: feat!: or feat(scope)!:
+
+COMMIT_MSG_FILE="$1"
+COMMIT_MSG=$(head -1 "$COMMIT_MSG_FILE")
+
+# Skip merge commits, revert auto-generated messages
+if echo "$COMMIT_MSG" | grep -qE "^(Merge |Revert \")"; then
+  exit 0
+fi
+
+# Conventional Commits regex
+# type(optional-scope)optional-!: description
+PATTERN="^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9._-]+\))?!?: .+$"
+
+if ! echo "$COMMIT_MSG" | grep -qE "$PATTERN"; then
+  echo "ERROR: Commit message does not follow Conventional Commits specification."
+  echo ""
+  echo "  Expected: <type>(<scope>): <description>"
+  echo "  Got:      $COMMIT_MSG"
+  echo ""
+  echo "  Valid types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert"
+  echo "  Examples:"
+  echo "    feat(auth): add OAuth2 login flow"
+  echo "    fix: handle null response from API"
+  echo "    docs(readme): add installation guide"
+  echo "    feat!: remove deprecated endpoints"
+  echo ""
+  exit 1
+fi
+
+# Check description starts with lowercase
+DESC=$(echo "$COMMIT_MSG" | sed -E "s/^[^:]+: //")
+if echo "$DESC" | grep -qE "^[A-Z]"; then
+  echo "ERROR: Commit description must start with lowercase."
+  echo ""
+  echo "  Got:      $COMMIT_MSG"
+  echo "  Expected: $(echo "$COMMIT_MSG" | sed -E "s/: [A-Z]/: \L&/")"
+  echo ""
+  exit 1
+fi
+
+# Check no trailing period
+if echo "$DESC" | grep -qE "\.$"; then
+  echo "ERROR: Commit description must not end with a period."
+  echo ""
+  echo "  Got: $COMMIT_MSG"
+  echo ""
+  exit 1
+fi
