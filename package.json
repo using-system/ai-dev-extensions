@@ -1,6 +1,6 @@
 {
   "name": "ai-dev-extensions",
-  "version": "0.1.0",
+  "version": "1.0.1",
   "description": "Personal collection of skills, hooks and extensions for AI dev CLI agents (Claude Code, Cursor, Codex, OpenCode, Copilot, Gemini)",
   "author": {
     "name": "using-system"
