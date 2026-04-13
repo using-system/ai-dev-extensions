@@ -1,6 +1,6 @@
 ---
 name: github-actions
-description: "Use when reviewing, writing, or modifying GitHub Actions workflows or referencing any GitHub Action - enforces version pinning by commit SHA, latest version verification, version commenting, and script injection prevention"
+description: "Use when reviewing, writing, or modifying GitHub Actions workflows or referencing any GitHub Action - enforces version pinning by commit SHA, latest version verification, and version commenting"
 ---
 
 # GitHub Actions Best Practices
@@ -101,6 +101,26 @@ These expressions are **user-controlled** and MUST always go through `env:`:
 | Branch / tag name | `github.head_ref`, `github.ref_name` |
 | Review body | `github.event.review.body` |
 
+#### Job outputs (`needs.*.outputs.*`)
+
+Job outputs are only as safe as how they were produced. If a job output originates from user-controlled data (commit messages, PR titles, branch names) — even indirectly via a third-party action — it MUST go through `env:` when used in `run:` or `script:` blocks.
+
+```yaml
+# BAD - output may contain injected content from commit messages
+- run: echo "Releasing ${{ needs.version.outputs.new_tag }}"
+
+# GOOD - passed through env
+- run: echo "Releasing ${NEW_TAG}"
+  env:
+    NEW_TAG: ${{ needs.version.outputs.new_tag }}
+
+# OK - with: inputs are action parameters, not shell-interpolated
+  with:
+    commit_message: "chore(release): v${{ needs.version.outputs.new_version }}"
+```
+
+**Note**: `with:` inputs are passed as strings to actions, not shell-interpolated — they are safe from script injection. The `env:` rule applies specifically to `run:` and `script:` blocks.
+
 #### Safe expressions (env still recommended)
 
 These are generally safe but using `env:` is still best practice for consistency:
@@ -108,7 +128,6 @@ These are generally safe but using `env:` is still best practice for consistency
 - `github.repository`, `github.actor`, `github.sha`
 - `github.run_id`, `github.run_number`
 - `secrets.*`, `vars.*`
-- `needs.<job>.outputs.*` (if outputs are sanitized)
 
 ### 5. Apply to ALL actions, including official ones
 
@@ -135,12 +154,6 @@ When reviewing a workflow PR, verify each `uses:` line:
 - [ ] SHA corresponds to the **latest** available version
 - [ ] Inline comment shows the version tag (e.g., `# v4.2.2`)
 - [ ] If not latest, there is a documented reason (compatibility, etc.)
-
-And verify each `run:` block:
-
-- [ ] No `${{ }}` expressions interpolated directly in the script
-- [ ] User-controlled values (PR title, issue body, branch name, etc.) passed through `env:`
-- [ ] Environment variables used in the shell script instead of inline expressions
 
 ## Common Actions Reference
 
