@@ -1,6 +1,6 @@
 ---
 name: github-actions
-description: "Use when reviewing, writing, or modifying GitHub Actions workflows or referencing any GitHub Action - enforces version pinning by commit SHA, latest version verification, and version commenting"
+description: "Use when reviewing, writing, or modifying GitHub Actions workflows or referencing any GitHub Action - enforces version pinning by commit SHA, latest version verification, version commenting, and script injection prevention"
 ---
 
 # GitHub Actions Best Practices
@@ -62,7 +62,55 @@ The inline comment after the SHA MUST contain the human-readable version so that
 
 Format: `{owner}/{action}@{sha} # {tag}`
 
-### 4. Apply to ALL actions, including official ones
+### 4. Never use expressions directly in `run` scripts — use environment variables
+
+Interpolating `${{ }}` expressions directly in `run:` blocks (bash, PowerShell, or any shell) creates **script injection vulnerabilities**. An attacker who controls the expression value (e.g., a PR title, branch name, or issue body) can inject arbitrary commands.
+
+**Always** pass untrusted values through environment variables:
+
+```yaml
+# BAD - direct interpolation, vulnerable to command injection
+- run: echo "Hello ${{ github.event.pull_request.title }}"
+
+# BAD - same issue in PowerShell
+- run: Write-Host "Hello ${{ github.event.issue.body }}"
+  shell: pwsh
+
+# GOOD - pass through env, shell handles escaping
+- run: echo "Hello $TITLE"
+  env:
+    TITLE: ${{ github.event.pull_request.title }}
+
+# GOOD - PowerShell equivalent
+- run: Write-Host "Hello $env:BODY"
+  shell: pwsh
+  env:
+    BODY: ${{ github.event.issue.body }}
+```
+
+#### Dangerous expression sources
+
+These expressions are **user-controlled** and MUST always go through `env:`:
+
+| Source | Example |
+|--------|---------|
+| PR title / body | `github.event.pull_request.title`, `github.event.pull_request.body` |
+| Issue title / body | `github.event.issue.title`, `github.event.issue.body` |
+| Comment body | `github.event.comment.body` |
+| Commit message | `github.event.head_commit.message` |
+| Branch / tag name | `github.head_ref`, `github.ref_name` |
+| Review body | `github.event.review.body` |
+
+#### Safe expressions (env still recommended)
+
+These are generally safe but using `env:` is still best practice for consistency:
+
+- `github.repository`, `github.actor`, `github.sha`
+- `github.run_id`, `github.run_number`
+- `secrets.*`, `vars.*`
+- `needs.<job>.outputs.*` (if outputs are sanitized)
+
+### 5. Apply to ALL actions, including official ones
 
 This applies to **every** action, including:
 - `actions/checkout`
@@ -87,6 +135,12 @@ When reviewing a workflow PR, verify each `uses:` line:
 - [ ] SHA corresponds to the **latest** available version
 - [ ] Inline comment shows the version tag (e.g., `# v4.2.2`)
 - [ ] If not latest, there is a documented reason (compatibility, etc.)
+
+And verify each `run:` block:
+
+- [ ] No `${{ }}` expressions interpolated directly in the script
+- [ ] User-controlled values (PR title, issue body, branch name, etc.) passed through `env:`
+- [ ] Environment variables used in the shell script instead of inline expressions
 
 ## Common Actions Reference
 
