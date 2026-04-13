@@ -1,0 +1,17 @@
+{
+  "name": "ai-dev-extensions",
+  "version": "0.1.0",
+  "description": "Personal collection of skills, hooks and extensions for AI dev CLI agents (Claude Code, Cursor, Codex, OpenCode, Copilot, Gemini)",
+  "author": {
+    "name": "using-system"
+  },
+  "repository": "https://github.com/using-system/ai-dev-extensions",
+  "license": "Apache-2.0",
+  "keywords": [
+    "skills",
+    "github-actions",
+    "devops",
+    "cloud",
+    "best-practices"
+  ]
+}

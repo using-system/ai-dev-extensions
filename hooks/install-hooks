@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Install git hooks from ai-dev-extensions into the current repository
+# Usage: ./hooks/install-hooks [target-repo-path]
+
+HOOKS_DIR="$(cd "$(dirname "$0")" && pwd)"
+TARGET_REPO="${1:-.}"
+
+# Resolve target .git/hooks directory
+GIT_DIR=$(git -C "$TARGET_REPO" rev-parse --git-dir 2>/dev/null) || {
+  echo "ERROR: $TARGET_REPO is not a git repository"
+  exit 1
+}
+TARGET_HOOKS_DIR="$GIT_DIR/hooks"
+mkdir -p "$TARGET_HOOKS_DIR"
+
+# List of git hooks to install
+GIT_HOOKS="commit-msg"
+
+INSTALLED=0
+for hook in $GIT_HOOKS; do
+  if [ -f "$HOOKS_DIR/$hook" ]; then
+    if [ -f "$TARGET_HOOKS_DIR/$hook" ]; then
+      echo "SKIP: $hook already exists in $TARGET_HOOKS_DIR (backup as $hook.bak)"
+      cp "$TARGET_HOOKS_DIR/$hook" "$TARGET_HOOKS_DIR/$hook.bak"
+    fi
+    ln -sf "$HOOKS_DIR/$hook" "$TARGET_HOOKS_DIR/$hook"
+    echo "  OK: $hook -> $HOOKS_DIR/$hook"
+    INSTALLED=$((INSTALLED + 1))
+  fi
+done
+
+echo ""
+echo "Installed $INSTALLED hook(s) in $TARGET_HOOKS_DIR"

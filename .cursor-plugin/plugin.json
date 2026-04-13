@@ -1,0 +1,11 @@
+{
+  "name": "ai-dev-extensions",
+  "displayName": "AI Dev Extensions",
+  "description": "Personal skills and hooks for AI dev CLI agents: GitHub Actions best practices, DevOps patterns, and cloud-native workflows",
+  "version": "0.1.0",
+  "author": {
+    "name": "using-system"
+  },
+  "skills": "./skills/",
+  "hooks": "./hooks/hooks-cursor.json"
+}
