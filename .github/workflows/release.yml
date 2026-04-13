@@ -1,0 +1,118 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  version:
+    name: Determine version
+    runs-on: ubuntu-latest
+    outputs:
+      new_tag: ${{ steps.tag.outputs.new_tag }}
+      new_version: ${{ steps.tag.outputs.new_version }}
+      changelog: ${{ steps.tag.outputs.changelog }}
+      previous_tag: ${{ steps.tag.outputs.previous_tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Determine next version
+        id: tag
+        uses: mathieudutour/github-tag-action@d28fa2ccfbd16e871a4bdf35e11b3ad1bd56c0c1 # v6.2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          default_bump: patch
+          tag_prefix: v
+
+  bump:
+    name: Bump version in files
+    runs-on: ubuntu-latest
+    needs: version
+    if: needs.version.outputs.new_tag != ''
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: main
+
+      - name: Bump versions from .version-bump.json
+        env:
+          NEW_VERSION: ${{ needs.version.outputs.new_version }}
+        run: |
+          echo "Bumping version to ${NEW_VERSION}"
+
+          jq -c '.files[]' .version-bump.json | while IFS= read -r entry; do
+            FILE=$(echo "$entry" | jq -r '.path')
+            FIELD=$(echo "$entry" | jq -r '.field')
+
+            if [ ! -f "$FILE" ]; then
+              echo "::warning::File not found: $FILE"
+              continue
+            fi
+
+            # Convert dot-notation path to jq setpath array
+            # e.g. "plugins.0.version" -> ["plugins",0,"version"]
+            JQ_PATH=$(echo "$FIELD" | jq -R 'split(".") | map(if test("^[0-9]+$") then tonumber else . end)')
+
+            echo "Updating $FILE field '$FIELD' to $NEW_VERSION"
+            jq --arg v "$NEW_VERSION" --argjson path "$JQ_PATH" 'setpath($path; $v)' "$FILE" > tmp.$$.json && mv tmp.$$.json "$FILE"
+          done
+
+      - name: Audit for stale version references
+        env:
+          PREVIOUS_TAG: ${{ needs.version.outputs.previous_tag }}
+        run: |
+          PREVIOUS_VERSION="${PREVIOUS_TAG#v}"
+
+          if [ -z "$PREVIOUS_VERSION" ]; then
+            echo "No previous version to audit against"
+            exit 0
+          fi
+
+          echo "Auditing for stale references to ${PREVIOUS_VERSION}"
+
+          EXCLUDE_ARGS=""
+          for pattern in $(jq -r '.audit.exclude[]' .version-bump.json); do
+            EXCLUDE_ARGS="$EXCLUDE_ARGS --exclude=$pattern --exclude-dir=$pattern"
+          done
+
+          if grep -r "$PREVIOUS_VERSION" . $EXCLUDE_ARGS --include='*.json' --include='*.md' --include='*.yml' --include='*.yaml' 2>/dev/null; then
+            echo "::warning::Found stale version references to ${PREVIOUS_VERSION} — check the files above"
+          else
+            echo "No stale version references found"
+          fi
+
+      - name: Commit and push version bump
+        uses: stefanzweifel/git-auto-commit-action@04702edda442b2e678b25b537cec683a1493fcb9 # v7.1.0
+        with:
+          commit_message: "chore(release): bump version to v${{ needs.version.outputs.new_version }}"
+          file_pattern: "*.json **/*.json"
+
+  release:
+    name: Create GitHub release
+    runs-on: ubuntu-latest
+    needs: [version, bump]
+    steps:
+      - name: Create release
+        uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0
+        env:
+          NEW_TAG: ${{ needs.version.outputs.new_tag }}
+          CHANGELOG: ${{ needs.version.outputs.changelog }}
+        with:
+          script: |
+            await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: process.env.NEW_TAG,
+              name: process.env.NEW_TAG,
+              body: process.env.CHANGELOG,
+              draft: false,
+              prerelease: false
+            });

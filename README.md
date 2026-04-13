@@ -16,7 +16,7 @@ A curated collection of personal agent extensions, skills, and CLI hooks to enha
 
 ```bash
 claude plugin marketplace add using-system/ai-dev-extensions
-claude plugin install ai-dev-extensions
+claude plugin install ai-dev-extensions@using-system
 ```
 
 Or for a single session from a local clone:
@@ -29,14 +29,14 @@ claude --plugin-dir /path/to/ai-dev-extensions
 
 ```bash
 /plugin marketplace add using-system/ai-dev-extensions
-/plugin install ai-dev-extensions
+/plugin install ai-dev-extensions@using-system
 ```
 
 ### Copilot CLI
 
 ```bash
 copilot plugin marketplace add using-system/ai-dev-extensions
-copilot plugin install ai-dev-extensions
+copilot plugin install ai-dev-extensions@using-system
 ```
 
 ### Codex

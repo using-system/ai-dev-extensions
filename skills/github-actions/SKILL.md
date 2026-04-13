@@ -62,7 +62,74 @@ The inline comment after the SHA MUST contain the human-readable version so that
 
 Format: `{owner}/{action}@{sha} # {tag}`
 
-### 4. Apply to ALL actions, including official ones
+### 4. Never use expressions directly in `run` scripts — use environment variables
+
+Interpolating `${{ }}` expressions directly in `run:` blocks (bash, PowerShell, or any shell) creates **script injection vulnerabilities**. An attacker who controls the expression value (e.g., a PR title, branch name, or issue body) can inject arbitrary commands.
+
+**Always** pass untrusted values through environment variables:
+
+```yaml
+# BAD - direct interpolation, vulnerable to command injection
+- run: echo "Hello ${{ github.event.pull_request.title }}"
+
+# BAD - same issue in PowerShell
+- run: Write-Host "Hello ${{ github.event.issue.body }}"
+  shell: pwsh
+
+# GOOD - pass through env, shell handles escaping
+- run: echo "Hello $TITLE"
+  env:
+    TITLE: ${{ github.event.pull_request.title }}
+
+# GOOD - PowerShell equivalent
+- run: Write-Host "Hello $env:BODY"
+  shell: pwsh
+  env:
+    BODY: ${{ github.event.issue.body }}
+```
+
+#### Dangerous expression sources
+
+These expressions are **user-controlled** and MUST always go through `env:`:
+
+| Source | Example |
+|--------|---------|
+| PR title / body | `github.event.pull_request.title`, `github.event.pull_request.body` |
+| Issue title / body | `github.event.issue.title`, `github.event.issue.body` |
+| Comment body | `github.event.comment.body` |
+| Commit message | `github.event.head_commit.message` |
+| Branch / tag name | `github.head_ref`, `github.ref_name` |
+| Review body | `github.event.review.body` |
+
+#### Job outputs (`needs.*.outputs.*`)
+
+Job outputs are only as safe as how they were produced. If a job output originates from user-controlled data (commit messages, PR titles, branch names) — even indirectly via a third-party action — it MUST go through `env:` when used in `run:` or `script:` blocks.
+
+```yaml
+# BAD - output may contain injected content from commit messages
+- run: echo "Releasing ${{ needs.version.outputs.new_tag }}"
+
+# GOOD - passed through env
+- run: echo "Releasing ${NEW_TAG}"
+  env:
+    NEW_TAG: ${{ needs.version.outputs.new_tag }}
+
+# OK - with: inputs are action parameters, not shell-interpolated
+  with:
+    commit_message: "chore(release): v${{ needs.version.outputs.new_version }}"
+```
+
+**Note**: `with:` inputs are passed as strings to actions, not shell-interpolated — they are safe from script injection. The `env:` rule applies specifically to `run:` and `script:` blocks.
+
+#### Safe expressions (env still recommended)
+
+These are generally safe but using `env:` is still best practice for consistency:
+
+- `github.repository`, `github.actor`, `github.sha`
+- `github.run_id`, `github.run_number`
+- `secrets.*`, `vars.*`
+
+### 5. Apply to ALL actions, including official ones
 
 This applies to **every** action, including:
 - `actions/checkout`
