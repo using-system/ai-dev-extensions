@@ -58,13 +58,20 @@ Use `--ff-only` to avoid accidental merge commits if the local default branch ha
 git branch -d <feature-branch>
 ```
 
-Use `-d` (safe delete) first. If Git refuses because the branch is not fully merged into the default branch (common when the PR was squash-merged), confirm the PR was actually merged via `gh pr view`, then force the delete:
+Use `-d` (safe delete) first. Git will refuse when the branch is not fully merged into the default branch — this is common and expected when the PR was squash-merged or rebase-merged (the tip commit of the feature branch is not an ancestor of `main`).
+
+Force-delete with `-D` is acceptable **only** when one of the following is true, confirmed via `gh pr view`:
+
+- `state` is `MERGED` — the changes exist on the default branch under a new commit hash; the original commits are redundant.
+- `state` is `CLOSED` **and** the branch was intentionally abandoned (the user confirms the work will not be reused).
 
 ```bash
 git branch -D <feature-branch>
 ```
 
-Never use `-D` without first confirming PR merge/close state.
+**Data-loss warning.** For a `CLOSED` (unmerged) PR, `-D` permanently discards any commits on that branch that live nowhere else — there is no remote copy to recover from once the remote branch is also deleted in step 5. Confirm with the user before force-deleting a closed-unmerged branch.
+
+Never use `-D` without first confirming PR state via `gh pr view`.
 
 ### 5. Delete the remote branch if it still exists
 
@@ -94,24 +101,52 @@ The feature branch must be absent from both.
 
 ## Full Recipe
 
-```bash
-# 1. Verify PR state
-gh pr view <branch-or-number> --json state,headRefName
+The recipe below enforces Rule §1 (abort when `state` is `OPEN`) and Rule §4 (only force-delete after state validation), and derives `FEATURE_BRANCH` from the PR itself so a mistyped argument cannot cause the wrong branch to be deleted.
 
-# 2. Find default branch
+```bash
+PR=<branch-or-number>
+
+# 1. Verify PR state and capture the exact head branch from the PR
+PR_STATE=$(gh pr view "$PR" --json state -q .state)
+FEATURE_BRANCH=$(gh pr view "$PR" --json headRefName -q .headRefName)
+
+if [ -z "$PR_STATE" ] || [ -z "$FEATURE_BRANCH" ]; then
+  echo "Could not determine PR state or head branch; aborting."
+  exit 1
+fi
+
+if [ "$PR_STATE" = "OPEN" ]; then
+  echo "PR is still OPEN; refusing to delete anything."
+  exit 1
+fi
+
+# 2. Find default branch and refuse protected branches
 DEFAULT=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name)
+
+if [ "$FEATURE_BRANCH" = "$DEFAULT" ] \
+    || [ "$FEATURE_BRANCH" = "main" ] \
+    || [ "$FEATURE_BRANCH" = "master" ] \
+    || [ "$FEATURE_BRANCH" = "develop" ] \
+    || [[ "$FEATURE_BRANCH" == release/* ]]; then
+  echo "Refusing to delete protected or default branch: $FEATURE_BRANCH"
+  exit 1
+fi
 
 # 3. Switch + sync
 git checkout "$DEFAULT"
 git pull --ff-only origin "$DEFAULT"
 
-# 4. Delete local branch (fallback to -D after confirming merge)
-git branch -d <feature-branch> || git branch -D <feature-branch>
+# 4. Delete local branch — safe delete first, force-delete only after state has been validated above
+if ! git branch -d "$FEATURE_BRANCH"; then
+  # For CLOSED (unmerged) PRs this discards commits that live nowhere else — confirm with the user first.
+  echo "Safe delete failed (branch not fully merged). Force-deleting validated branch: $FEATURE_BRANCH"
+  git branch -D "$FEATURE_BRANCH"
+fi
 
 # 5. Prune + delete remote branch if still present
 git fetch --prune origin
-if git ls-remote --exit-code --heads origin <feature-branch> >/dev/null 2>&1; then
-  git push origin --delete <feature-branch>
+if git ls-remote --exit-code --heads origin "$FEATURE_BRANCH" >/dev/null 2>&1; then
+  git push origin --delete "$FEATURE_BRANCH"
 else
   echo "Remote branch already deleted"
 fi
