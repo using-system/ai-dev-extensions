@@ -17,9 +17,10 @@ Before pushing changes to a remote repository, a local code review MUST be perfo
 
 ## Do NOT Use When
 
-- The user explicitly asks to skip the review ("push without review", "just push it")
 - Pushing tags only (`git push --tags` with no commit changes)
 - Force-pushing to recover from a known state (user has already reviewed)
+
+**Note:** If the user asks to skip the review, the review MUST still run. Present the findings to the user and require an explicit acknowledgement before pushing with known issues.
 
 ## Rules
 
@@ -28,8 +29,19 @@ Before pushing changes to a remote repository, a local code review MUST be perfo
 Before executing `git push`, run a code review on the changes that will be pushed:
 
 ```bash
-# Determine what will be pushed
-git log --oneline @{upstream}..HEAD 2>/dev/null || git log --oneline origin/$(git branch --show-current)..HEAD
+# Determine what will be pushed (best-effort; falls back gracefully on first push)
+UPSTREAM=$(git rev-parse --abbrev-ref @{upstream} 2>/dev/null)
+if [ -n "$UPSTREAM" ]; then
+  git log --oneline "$UPSTREAM"..HEAD
+else
+  # No upstream yet — try merge-base against default branch
+  DEFAULT=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null)
+  if [ -n "$DEFAULT" ]; then
+    git log --oneline "$(git merge-base HEAD "$DEFAULT")"..HEAD
+  else
+    git log --oneline -n 10 HEAD
+  fi
+fi
 
 # Run the active AI coding assistant's review command
 # (e.g., /review in Copilot CLI, Claude Code, or equivalent)
@@ -87,7 +99,12 @@ Capture the commit range **before** pushing (after push, `HEAD` equals `@{upstre
 PUSH_BASE=$(git rev-parse @{upstream} 2>/dev/null || git merge-base HEAD origin/HEAD 2>/dev/null)
 
 # After pushing — show what was pushed
-git log --oneline "$PUSH_BASE"..HEAD
+if [ -n "$PUSH_BASE" ]; then
+  git log --oneline "$PUSH_BASE"..HEAD
+else
+  echo "(could not determine push base — showing last 10 commits)"
+  git log --oneline -n 10 HEAD
+fi
 ```
 
 ## Full Recipe

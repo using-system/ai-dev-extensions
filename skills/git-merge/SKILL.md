@@ -19,8 +19,9 @@ Every git merge — whether a direct `git merge`, a GitHub PR merge via `gh pr m
 ## Do NOT Use When
 
 - The user is only *viewing* merge status or conflicts (`git log --merges`, `gh pr status`)
-- The user explicitly asks to skip confirmation ("just merge it", "merge without asking")
 - Rebasing — this is not a merge (use caution separately, but this skill does not apply)
+
+**Note:** Even if the user says "just merge it" or "merge without asking", always present the merge summary first. The user must explicitly confirm after seeing the summary. This is the core safety guarantee of the skill.
 
 ## Rules
 

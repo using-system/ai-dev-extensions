@@ -153,6 +153,8 @@ Order matters:
 
 Resolve every thread this way — fix or decline — **as long as a substantive reply was posted first**. Resolution without a reply is forbidden (see Rule §9); it looks like feedback is being silenced.
 
+**Exception:** threads on protected paths (see §2) must **not** be resolved, even after replying. They stay open for manual handling.
+
 ### 9. Never resolve without replying first
 
 Resolving a thread that has no author reply is silencing feedback, regardless of whether you intended to fix it or decline it. The reply is what makes the decision transparent to the reviewer; resolution just tidies the UI.
@@ -221,6 +223,8 @@ gh api -X POST \
   -f body="Fixed in <short-sha>. <one-sentence summary of the change>"
 
 # 6. Resolve every thread for which you posted a reply (fix or decline).
+#    EXCEPTION: do NOT resolve threads on protected paths (docs/superpowers/**).
+#    Those stay open for manual handling even after replying.
 gh api graphql -f query='
 mutation($id: ID!) {
   resolveReviewThread(input: { threadId: $id }) {
