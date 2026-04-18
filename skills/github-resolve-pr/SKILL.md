@@ -1,15 +1,15 @@
 ---
 name: github-resolve-pr
-description: "Use when the user asks to review, analyze, address, or resolve comments pushed on a GitHub pull request - fetches all unresolved review threads, judges each comment on its merits, applies a fix when the comment is valid, always replies to every thread (fix summary or rationale for not fixing), and resolves only threads that were fixed (or that the user explicitly authorized closing after a decline)"
+description: "Use when the user asks to review, analyze, address, or resolve comments pushed on a GitHub pull request - fetches all unresolved review threads, judges each comment on its merits, applies a fix when the comment is valid, always replies to every thread (fix summary or rationale for not fixing), and resolves every thread after the reply is posted — whether the comment was fixed or declined with rationale"
 ---
 
 # GitHub Resolve PR Comments
 
 ## Overview
 
-When a reviewer (human or bot such as Copilot, CodeRabbit, Sourcery) leaves comments on a PR, the author must close the loop on every comment — not just the ones that are trivially actionable. This skill defines a consistent workflow: fetch unresolved threads, judge each one on technical merit, apply a fix when warranted, and always leave an explicit reply (either a fix summary or a rationale for declining). Resolve the thread only after the fix has been pushed, or when the user explicitly authorizes closing a thread you declined to fix — never silently resolve a decline.
+When a reviewer (human or bot such as Copilot, CodeRabbit, Sourcery) leaves comments on a PR, the author must close the loop on every comment — not just the ones that are trivially actionable. This skill defines a consistent workflow: fetch unresolved threads, judge each one on technical merit, apply a fix when warranted, and always leave an explicit reply (either a fix summary or a rationale for declining). Resolve every thread after the reply is posted — fixed ones once the commit is pushed, declined ones once the rationale is on the record. The reply is what preserves the conversational trail; resolution just hides the thread from the default view so remaining work is visible.
 
-Silence is not acceptable. A thread with no reply leaves the reviewer guessing whether the feedback was seen, rejected, or forgotten.
+Silence is not acceptable. A thread with no reply leaves the reviewer guessing whether the feedback was seen, rejected, or forgotten. Resolving without replying is the same defect in disguise.
 
 ## When to Use
 
@@ -111,7 +111,7 @@ Replies carry the fix commit SHA. Push first, then reply — the SHA must resolv
 git push
 ```
 
-### 7. Resolve the thread only after reply + push
+### 7. Resolve every thread after reply + push
 
 Use the `resolveReviewThread` GraphQL mutation with the `thread.id` captured in step 1:
 
@@ -124,13 +124,20 @@ mutation($id: ID!) {
 }' -f id=<THREAD_NODE_ID>
 ```
 
-Order matters: **fix → push → reply → resolve**. Resolving before replying hides the thread from the reviewer's default view without closing the conversational loop. Replying before pushing creates a broken SHA reference.
+Order matters:
 
-### 8. Do not resolve threads you disagree with unilaterally
+- **Fixed threads**: `fix → push → reply → resolve`. Replying before pushing creates a broken SHA reference.
+- **Declined threads**: `reply (with rationale) → resolve`. The rationale stays in the thread history; resolution just hides it from the default "unresolved" view so the remaining work is visible.
 
-If you decline a fix (Rule §2: Invalid), post the rationale but **leave the thread unresolved**. Only the reviewer (or the user, after acknowledging your rationale) should resolve a "won't fix" thread. Resolving your own refusal looks like you are silencing feedback.
+Resolve every thread this way — fix or decline — **as long as a substantive reply was posted first**. Resolution without a reply is forbidden (see Rule §8); it looks like feedback is being silenced.
 
-Exception: when the user has explicitly authorized you to resolve declined threads on their behalf for this PR.
+### 8. Never resolve without replying first
+
+Resolving a thread that has no author reply is silencing feedback, regardless of whether you intended to fix it or decline it. The reply is what makes the decision transparent to the reviewer; resolution just tidies the UI.
+
+If you cannot articulate a rationale for declining, that is a signal the comment probably warrants a fix — do not resolve to avoid the conversation.
+
+**Reviewer-flagged disagreements.** If the reviewer pushes back on your rationale and re-opens the thread (or posts a counter-argument), treat that as a fresh unresolved thread: read it, reply again with an updated decision, and only then resolve.
 
 ## Full Recipe
 
@@ -191,7 +198,7 @@ gh api -X POST \
   "repos/$OWNER/$REPO/pulls/$PR/comments/<COMMENT_DATABASE_ID>/replies" \
   -f body="Fixed in <short-sha>. <one-sentence summary of the change>"
 
-# 6. Resolve ONLY threads you fixed (or the user has authorized you to close).
+# 6. Resolve every thread for which you posted a reply (fix or decline).
 gh api graphql -f query='
 mutation($id: ID!) {
   resolveReviewThread(input: { threadId: $id }) {
@@ -202,9 +209,9 @@ mutation($id: ID!) {
 
 ## Red Flags — STOP
 
-- About to resolve a thread without replying → reply first
-- About to reply before pushing → push first so the SHA is valid
+- About to resolve a thread without replying → reply first; silent resolution is the one thing this skill forbids
+- About to reply before pushing a fix → push first so the SHA is valid
 - About to accept every bot suggestion without reading the surrounding code → read first, decide second
-- About to resolve a thread you chose *not* to fix → leave unresolved unless the user authorized otherwise
+- About to decline a comment and resolve with "won't fix" and nothing else → write a rationale the reviewer can evaluate, then resolve
 - About to batch fixes across unrelated threads into a single "address review" commit → split by concern
 - Comment references a file/line that no longer exists because the diff moved → re-read the current file at `path` before assuming the feedback is stale
