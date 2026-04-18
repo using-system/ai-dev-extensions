@@ -38,7 +38,7 @@ Only proceed when `state` is `MERGED` or `CLOSED`. If the PR is still `OPEN`, st
 Do not assume `main`. Query it:
 
 ```bash
-gh repo view --json defaultBranchRef -q .defaultBranchRef.name
+gh repo view --json defaultBranchRef --jq .defaultBranchRef.name
 ```
 
 Use whatever it returns (`main`, `master`, `trunk`, etc.) as the checkout target.
@@ -107,8 +107,8 @@ The recipe below enforces Rule §1 (abort when `state` is `OPEN`) and Rule §4 (
 PR=<branch-or-number>
 
 # 1. Verify PR state and capture the exact head branch from the PR
-PR_STATE=$(gh pr view "$PR" --json state -q .state)
-FEATURE_BRANCH=$(gh pr view "$PR" --json headRefName -q .headRefName)
+PR_STATE=$(gh pr view "$PR" --json state --jq .state)
+FEATURE_BRANCH=$(gh pr view "$PR" --json headRefName --jq .headRefName)
 
 if [ -z "$PR_STATE" ] || [ -z "$FEATURE_BRANCH" ]; then
   echo "Could not determine PR state or head branch; aborting."
@@ -121,7 +121,7 @@ if [ "$PR_STATE" = "OPEN" ]; then
 fi
 
 # 2. Find default branch and refuse protected branches
-DEFAULT=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name)
+DEFAULT=$(gh repo view --json defaultBranchRef --jq .defaultBranchRef.name)
 
 if [ -z "$DEFAULT" ]; then
   echo "Could not determine default branch (gh auth/config issue, or not a git repo); aborting."

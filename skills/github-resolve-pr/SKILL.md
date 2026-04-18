@@ -36,10 +36,12 @@ query {
   repository(owner: "<OWNER>", name: "<REPO>") {
     pullRequest(number: <PR>) {
       reviewThreads(first: 50) {
+        pageInfo { hasNextPage endCursor }
         nodes {
           id
           isResolved
           comments(first: 20) {
+            pageInfo { hasNextPage endCursor }
             nodes {
               databaseId
               author { login }
@@ -56,6 +58,8 @@ query {
 ```
 
 Capture for each unresolved thread: `thread.id` (for the resolve mutation), the latest comment's `databaseId` (for replies via REST), the `path` and `originalLine` (for locating the code), and the `body` (the feedback itself).
+
+**Pagination matters on large PRs.** The query above caps at 50 threads and 20 comments per thread. If `reviewThreads.pageInfo.hasNextPage` is `true`, you are missing threads — re-run with `after: "<endCursor>"` (via a `$threadsCursor` variable) and merge pages until `hasNextPage` is `false`. Likewise, if any thread's `comments.pageInfo.hasNextPage` is `true`, paginate that thread's comments before replying so you are seeing the latest turn of the conversation, not a stale mid-thread snapshot. See the paginated snippet in the Full Recipe below.
 
 ### 2. Judge each comment on technical merit
 
@@ -135,23 +139,41 @@ OWNER=<owner>
 REPO=<repo>
 PR=<number>
 
-# 1. Fetch unresolved threads
-gh api graphql -f query="
-query {
-  repository(owner: \"$OWNER\", name: \"$REPO\") {
-    pullRequest(number: $PR) {
-      reviewThreads(first: 50) {
-        nodes {
-          id
-          isResolved
-          comments(first: 20) {
-            nodes { databaseId author { login } path originalLine body }
+# 1. Fetch unresolved threads, paginating through all review-thread pages.
+#    If any thread reports comments.pageInfo.hasNextPage=true, paginate that
+#    thread's comments before replying so you see the latest turn.
+THREADS_CURSOR=null
+while :; do
+  page=$(gh api graphql \
+    -F owner="$OWNER" \
+    -F repo="$REPO" \
+    -F pr="$PR" \
+    -F threadsCursor="$THREADS_CURSOR" \
+    -f query='
+      query($owner: String!, $repo: String!, $pr: Int!, $threadsCursor: String) {
+        repository(owner: $owner, name: $repo) {
+          pullRequest(number: $pr) {
+            reviewThreads(first: 50, after: $threadsCursor) {
+              pageInfo { hasNextPage endCursor }
+              nodes {
+                id
+                isResolved
+                comments(first: 20) {
+                  pageInfo { hasNextPage endCursor }
+                  nodes { databaseId author { login } path originalLine body }
+                }
+              }
+            }
           }
         }
-      }
-    }
-  }
-}"
+      }')
+
+  echo "$page"
+
+  has_next=$(echo "$page" | jq -r '.data.repository.pullRequest.reviewThreads.pageInfo.hasNextPage')
+  [ "$has_next" != "true" ] && break
+  THREADS_CURSOR=$(echo "$page" | jq -r '.data.repository.pullRequest.reviewThreads.pageInfo.endCursor')
+done
 
 # 2. For each unresolved thread: read the body, inspect the code, decide valid/invalid.
 
