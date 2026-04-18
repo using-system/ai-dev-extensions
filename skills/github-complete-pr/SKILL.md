@@ -136,11 +136,19 @@ fi
 git checkout "$DEFAULT"
 git pull --ff-only origin "$DEFAULT"
 
-# 4. Delete local branch — safe delete first, force-delete only after state has been validated above
+# 4. Delete local branch — safe delete first; auto-force-delete only for MERGED PRs.
+#    For CLOSED (unmerged) PRs, abort and require the user to explicitly confirm data loss.
 if ! git branch -d "$FEATURE_BRANCH"; then
-  # For CLOSED (unmerged) PRs this discards commits that live nowhere else — confirm with the user first.
-  echo "Safe delete failed (branch not fully merged). Force-deleting validated branch: $FEATURE_BRANCH"
-  git branch -D "$FEATURE_BRANCH"
+  if [ "$PR_STATE" = "MERGED" ]; then
+    echo "Safe delete failed (squash/rebase merge rewrote history). Force-deleting merged branch: $FEATURE_BRANCH"
+    git branch -D "$FEATURE_BRANCH"
+  else
+    echo "Safe delete failed because the branch is not fully merged."
+    echo "PR state is $PR_STATE (not MERGED). Refusing to force-delete without explicit confirmation that the work is abandoned."
+    echo "If you have confirmed the branch can be discarded, rerun manually:"
+    echo "  git branch -D \"$FEATURE_BRANCH\""
+    exit 1
+  fi
 fi
 
 # 5. Prune + delete remote branch if still present
