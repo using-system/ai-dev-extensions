@@ -1,9 +1,9 @@
 ---
-name: github-pr
-description: "Use when creating or reviewing GitHub pull requests - enforces Conventional Commits naming convention on PR titles for semantic versioning and squash-merge compatibility"
+name: github-create-update-pr
+description: "Use when creating or updating GitHub pull requests - enforces Conventional Commits naming convention on PR titles for semantic versioning and squash-merge compatibility"
 ---
 
-# GitHub PR Convention
+# GitHub Create/Update PR Convention
 
 ## Overview
 
@@ -12,7 +12,7 @@ All GitHub pull request titles MUST follow the [Conventional Commits](https://ww
 ## When to Use
 
 - Creating a new pull request
-- Reviewing or updating a PR title
+- Updating an existing PR title or body
 - When a user asks about PR naming conventions
 
 ## Format

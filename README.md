@@ -4,11 +4,7 @@ A curated collection of personal agent extensions, skills, and CLI hooks to enha
 
 ## Skills
 
-| Skill | Description |
-|-------|-------------|
-| `github-actions` | Enforces GitHub Actions best practices: pin actions to SHA, verify latest versions, add version comments |
-| `git-commit` | Enforces Conventional Commits specification for semantic versioning compatibility |
-| `github-pr` | Enforces Conventional Commits naming on PR titles for squash-merge and changelog generation |
+Each skill lives in its own directory under [skills/](skills/) with a `SKILL.md` describing when and how it applies. Browse that folder for the current catalogue — no listing is maintained here to avoid drift.
 
 ## Installation
 
@@ -71,13 +67,7 @@ gemini extensions install https://github.com/using-system/ai-dev-extensions
 
 ```
 ai-dev-extensions/
-├── skills/                    # Skills (one directory per skill)
-│   ├── github-actions/        # GitHub Actions best practices
-│   │   └── SKILL.md
-│   ├── git-commit/            # Conventional Commits for git
-│   │   └── SKILL.md
-│   └── github-pr/             # Conventional Commits for PR titles
-│       └── SKILL.md
+├── skills/                    # Skills (one directory per skill, each with a SKILL.md)
 ├── hooks/                     # Hooks for CLI agents and git
 │   ├── session-start          # Session start hook (multi-platform)
 │   ├── commit-msg             # Git hook: validates Conventional Commits
