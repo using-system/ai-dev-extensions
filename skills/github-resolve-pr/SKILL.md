@@ -73,11 +73,15 @@ When an unresolved thread targets a file matching a protected path:
 
 1. **Do not apply any fix** to the file.
 2. **Do not resolve** the thread.
-3. **Log / output a note** explaining the skip:
+3. **Post an explicit reply on the PR thread** explaining that the path is protected, no automatic code change was made, and the thread is being left open for manual handling:
    ```
-   ⏭️ Skipping thread <thread-id> — targets protected path docs/superpowers/<file>. Left open for manual review.
+   This path is protected (`docs/superpowers/**`), so I did not apply an automatic fix here. Leaving this thread open for manual review.
    ```
-4. Move on to the next thread.
+4. **Optionally log / output a note** for local visibility:
+   ```
+   ⏭️ Skipping thread <thread-id> — targets protected path docs/superpowers/<file>. Replied on the thread and left it open for manual review.
+   ```
+5. Move on to the next thread.
 
 ### 3. Judge each comment on technical merit
 

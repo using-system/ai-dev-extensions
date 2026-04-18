@@ -7,7 +7,7 @@ description: "Use when pushing changes to a remote repository - runs a local cod
 
 ## Overview
 
-Before pushing changes to a remote repository, a local code review MUST be performed first. This catches problems earlier — before they reach the remote and before CI runs. The skill runs Copilot CLI `/review` locally, fixes any issues found, commits those fixes, and repeats the review cycle until the code is clean. Only then does the push proceed.
+Before pushing changes to a remote repository, a local code review MUST be performed first. This catches problems earlier — before they reach the remote and before CI runs. The skill runs the active AI coding assistant's review command (e.g., `/review` in Copilot CLI, Claude Code, or equivalent), fixes any issues found, commits those fixes, and repeats the review cycle until the code is clean. Only then does the push proceed.
 
 ## When to Use
 
@@ -25,17 +25,17 @@ Before pushing changes to a remote repository, a local code review MUST be perfo
 
 ### 1. Review before every push
 
-Before executing `git push`, run the Copilot CLI review on the changes that will be pushed:
+Before executing `git push`, run a code review on the changes that will be pushed:
 
 ```bash
 # Determine what will be pushed
 git log --oneline @{upstream}..HEAD 2>/dev/null || git log --oneline origin/$(git branch --show-current)..HEAD
 
-# Run Copilot CLI review
-copilot-cli review
+# Run the active AI coding assistant's review command
+# (e.g., /review in Copilot CLI, Claude Code, or equivalent)
 ```
 
-If Copilot CLI is not available, use the platform's equivalent review command (e.g., `/review` in the active AI coding assistant).
+Use whatever review command is available in your current environment. The specific command varies by platform (`/review`, `copilot review`, etc.).
 
 ### 2. Fix issues found by the review
 
@@ -80,11 +80,14 @@ git push -u origin $(git branch --show-current)
 
 ### 5. Report the result
 
-After a successful push, confirm what was pushed:
+Capture the commit range **before** pushing (after push, `HEAD` equals `@{upstream}` so the range is empty). Then report what was pushed:
 
 ```bash
-# Show pushed commits
-git log --oneline @{upstream}..HEAD 2>/dev/null || echo "Push complete."
+# Before pushing — capture the range
+PUSH_BASE=$(git rev-parse @{upstream} 2>/dev/null || git merge-base HEAD origin/HEAD 2>/dev/null)
+
+# After pushing — show what was pushed
+git log --oneline "$PUSH_BASE"..HEAD
 ```
 
 ## Full Recipe
@@ -96,7 +99,14 @@ UPSTREAM=$(git rev-parse --abbrev-ref @{upstream} 2>/dev/null)
 
 if [ -z "$UPSTREAM" ]; then
   echo "No upstream set — will push with -u origin/$BRANCH"
-  COMMITS=$(git log --oneline HEAD)
+  DEFAULT_BRANCH=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null)
+  if [ -n "$DEFAULT_BRANCH" ]; then
+    BASE=$(git merge-base HEAD "$DEFAULT_BRANCH")
+    COMMITS=$(git log --oneline "$BASE"..HEAD)
+  else
+    COMMITS=$(git log --oneline -n 10 HEAD)
+    echo "(no upstream or default branch found — showing last 10 commits)"
+  fi
 else
   COMMITS=$(git log --oneline "$UPSTREAM"..HEAD)
 fi
@@ -105,13 +115,16 @@ echo "Commits to push:"
 echo "$COMMITS"
 
 # 2. Run review (repeat until clean)
+# Use the review command available in your environment.
+# The loop below uses the exit code to determine pass/fail.
 CLEAN=false
 while [ "$CLEAN" = false ]; do
-  # Run Copilot CLI review (or platform equivalent)
-  copilot-cli review
-
-  # If issues found: fix, commit, loop
-  # If clean: set CLEAN=true
+  if <review-command>; then
+    CLEAN=true
+  else
+    echo "Review found issues. Fix them, commit the changes, and rerun."
+    # ... apply fixes, git add, git commit ...
+  fi
 done
 
 # 3. Push
@@ -129,14 +142,14 @@ fi
 git push
 
 # BAD — reviewing but pushing despite issues
-copilot-cli review  # finds 3 issues
+<review-command>  # finds 3 issues
 git push            # pushes anyway
 
 # GOOD — review, fix, re-review, push
-copilot-cli review  # finds 2 issues
+<review-command>  # finds 2 issues
 # ... fix the issues ...
 git add -A && git commit -m "fix(auth): address review findings in token validation"
-copilot-cli review  # clean
+<review-command>  # clean
 git push
 ```
 

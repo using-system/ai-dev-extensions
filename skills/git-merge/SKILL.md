@@ -24,9 +24,19 @@ Every git merge — whether a direct `git merge`, a GitHub PR merge via `gh pr m
 
 ## Rules
 
-### 1. Never merge without explicit user confirmation
+### 1. Verify the target branch first
 
-Before executing any merge command, present a summary and ask the user to confirm.
+Before anything else, confirm you are on the correct target branch:
+
+```bash
+git branch --show-current
+```
+
+If the current branch is not the intended target, switch to it — but confirm with the user if the target is a protected branch (`main`, `master`, `develop`). Ensure the working tree is clean (`git status`) before proceeding, since the dry-run in §2 modifies the index.
+
+### 2. Never merge without explicit user confirmation
+
+Once on the correct target branch, present a summary and ask the user to confirm.
 
 **Required summary contents:**
 
@@ -39,12 +49,12 @@ Before executing any merge command, present a summary and ask the user to confir
 | **Conflicts** | Whether conflicts are expected (run a dry-run first) |
 
 ```bash
-# Dry-run to detect conflicts before asking
+# Dry-run to detect conflicts (requires clean working tree)
 git merge --no-commit --no-ff <source-branch> 2>&1
 git merge --abort 2>/dev/null
 ```
 
-### 2. Ask clearly and wait
+### 3. Ask clearly and wait
 
 Present the summary, then ask a direct yes/no question. Do not proceed until the user explicitly confirms.
 
@@ -59,19 +69,9 @@ Merge summary:
 Proceed with merge? (yes/no)
 ```
 
-### 3. Respect "no"
+### 4. Respect "no"
 
 If the user declines, stop. Do not retry, rephrase, or suggest alternatives unless the user asks for them.
-
-### 4. Check the target branch before merging
-
-Confirm you are on the correct target branch before merging:
-
-```bash
-git branch --show-current
-```
-
-If the current branch is not the intended target, switch to it first — but confirm with the user if the target is a protected branch (`main`, `master`, `develop`).
 
 ### 5. PR/MR merges follow the same rule
 
@@ -109,7 +109,9 @@ git merge feat/new-api
 # BAD — PR merge without confirmation
 gh pr merge 42 --squash
 
-# GOOD — dry-run, summarize, confirm, then merge
+# GOOD — verify branch, dry-run, summarize, confirm, then merge
+git branch --show-current  # confirm target branch
+git status                 # confirm clean working tree
 git merge --no-commit --no-ff feat/new-api
 git merge --abort
 # ... present summary and ask user ...
