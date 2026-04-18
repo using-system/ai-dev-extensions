@@ -1,19 +1,19 @@
 ---
 name: github-resolve-pr
-description: "Use when the user asks to review, analyze, address, or resolve comments pushed on a GitHub pull request - fetches all unresolved review threads, judges each comment on its merits, applies a fix when the comment is valid, always replies to every thread (fix summary or rationale for not fixing), then resolves the thread once the fix commit has been pushed"
+description: "Use when the user asks to review, analyze, address, or resolve comments pushed on a GitHub pull request - fetches all unresolved review threads, judges each comment on its merits, applies a fix when the comment is valid, always replies to every thread (fix summary or rationale for not fixing), and resolves only threads that were fixed (or that the user explicitly authorized closing after a decline)"
 ---
 
 # GitHub Resolve PR Comments
 
 ## Overview
 
-When a reviewer (human or bot such as Copilot, CodeRabbit, Sourcery) leaves comments on a PR, the author must close the loop on every comment — not just the ones that are trivially actionable. This skill defines a consistent workflow: fetch unresolved threads, judge each one on technical merit, apply a fix when warranted, and always leave an explicit reply (either a fix summary or a rationale for declining) before resolving the thread.
+When a reviewer (human or bot such as Copilot, CodeRabbit, Sourcery) leaves comments on a PR, the author must close the loop on every comment — not just the ones that are trivially actionable. This skill defines a consistent workflow: fetch unresolved threads, judge each one on technical merit, apply a fix when warranted, and always leave an explicit reply (either a fix summary or a rationale for declining). Resolve the thread only after the fix has been pushed, or when the user explicitly authorizes closing a thread you declined to fix — never silently resolve a decline.
 
 Silence is not acceptable. A thread with no reply leaves the reviewer guessing whether the feedback was seen, rejected, or forgotten.
 
 ## When to Use
 
-- The user asks you to "review", "analyze", "address", "look at", "resolve", or "traiter" the comments on a PR
+- The user asks you to "review", "analyze", "address", "look at", "resolve", or "handle" the comments on a PR
 - A reviewer (human or bot) has posted comments and the user wants them handled
 - After pushing changes, the user wants remaining unresolved threads triaged
 - The user mentions a specific reviewer ("look at what Copilot said", "CodeRabbit flagged things")

@@ -123,6 +123,11 @@ fi
 # 2. Find default branch and refuse protected branches
 DEFAULT=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name)
 
+if [ -z "$DEFAULT" ]; then
+  echo "Could not determine default branch (gh auth/config issue, or not a git repo); aborting."
+  exit 1
+fi
+
 if [ "$FEATURE_BRANCH" = "$DEFAULT" ] \
     || [ "$FEATURE_BRANCH" = "main" ] \
     || [ "$FEATURE_BRANCH" = "master" ] \
