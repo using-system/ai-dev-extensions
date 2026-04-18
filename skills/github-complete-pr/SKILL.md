@@ -72,12 +72,14 @@ Many PR workflows auto-delete the remote branch on merge, but not all. Check and
 
 ```bash
 git fetch --prune origin
-git ls-remote --exit-code --heads origin <feature-branch> && \
-  git push origin --delete <feature-branch> || \
+if git ls-remote --exit-code --heads origin <feature-branch> >/dev/null 2>&1; then
+  git push origin --delete <feature-branch>
+else
   echo "Remote branch already deleted"
+fi
 ```
 
-`--prune` removes stale remote-tracking refs. The `ls-remote` check avoids a noisy error when the remote branch is already gone.
+`--prune` removes stale remote-tracking refs. The `ls-remote` check avoids a noisy error when the remote branch is already gone. The explicit `if/else` (instead of `A && B || C`) ensures a real `git push --delete` failure surfaces as an error rather than being swallowed by the "already deleted" message.
 
 ### 6. Confirm cleanup
 
@@ -108,9 +110,11 @@ git branch -d <feature-branch> || git branch -D <feature-branch>
 
 # 5. Prune + delete remote branch if still present
 git fetch --prune origin
-git ls-remote --exit-code --heads origin <feature-branch> \
-  && git push origin --delete <feature-branch> \
-  || echo "Remote branch already deleted"
+if git ls-remote --exit-code --heads origin <feature-branch> >/dev/null 2>&1; then
+  git push origin --delete <feature-branch>
+else
+  echo "Remote branch already deleted"
+fi
 
 # 6. Verify
 git branch
