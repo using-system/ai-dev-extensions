@@ -61,9 +61,27 @@ Capture for each unresolved thread: `thread.id` (for the resolve mutation), the 
 
 **Pagination matters on large PRs.** The query above caps at 50 threads and 20 comments per thread. If `reviewThreads.pageInfo.hasNextPage` is `true`, you are missing threads — re-run with `after: "<endCursor>"` (via a `$threadsCursor` variable) and merge pages until `hasNextPage` is `false`. Likewise, if any thread's `comments.pageInfo.hasNextPage` is `true`, paginate that thread's comments before replying so you are seeing the latest turn of the conversation, not a stale mid-thread snapshot. See the paginated snippet in the Full Recipe below.
 
-### 2. Judge each comment on technical merit
+### 2. Skip protected paths — do not auto-resolve
 
-For every unresolved thread, make a deliberate decision:
+Some file paths are considered stable after definition and must not be auto-resolved. Comments on these paths should remain open for manual handling.
+
+**Protected paths:**
+
+- `docs/superpowers/**`
+
+When an unresolved thread targets a file matching a protected path:
+
+1. **Do not apply any fix** to the file.
+2. **Do not resolve** the thread.
+3. **Log / output a note** explaining the skip:
+   ```
+   ⏭️ Skipping thread <thread-id> — targets protected path docs/superpowers/<file>. Left open for manual review.
+   ```
+4. Move on to the next thread.
+
+### 3. Judge each comment on technical merit
+
+For every unresolved thread (that was not skipped in §2), make a deliberate decision:
 
 - **Valid** — the comment identifies a real bug, ambiguity, inconsistency, security issue, or documentation defect. Fix it.
 - **Invalid** — the comment is wrong, based on a misreading, proposes something that conflicts with an explicit requirement, or suggests a change with worse tradeoffs than the current code. Do not fix.
@@ -71,7 +89,7 @@ For every unresolved thread, make a deliberate decision:
 
 Do not auto-accept bot suggestions just because they come from a bot. Do not auto-reject human feedback just because you disagree at first glance. Read the code around `path:originalLine` before deciding.
 
-### 3. Always reply to every thread
+### 4. Always reply to every thread
 
 Every unresolved thread must receive a reply before being resolved — regardless of the decision. The reply must:
 
@@ -85,11 +103,11 @@ gh api -X POST \
   -f body='<reply text>'
 ```
 
-### 4. Apply fixes on the PR branch, not on main
+### 5. Apply fixes on the PR branch, not on main
 
 Work on the PR's head branch. Confirm with `git branch --show-current` before editing. If you are on the default branch, check out the PR branch (`gh pr checkout <PR>`).
 
-### 5. Commit fixes with a descriptive conventional commit
+### 6. Commit fixes with a descriptive conventional commit
 
 Use the `git-commit` skill. Prefer one commit per logically-distinct fix over a single "address review comments" mega-commit — but don't split trivial wording fixes across multiple commits either. A commit that covers two related typos is fine; a commit that covers a shell-logic fix and a documentation restructure is not.
 
@@ -103,7 +121,7 @@ docs(readme): clarify installation prerequisites per review feedback
 
 Reference the reviewer concern in the commit body, not the title.
 
-### 6. Push before replying
+### 7. Push before replying
 
 Replies carry the fix commit SHA. Push first, then reply — the SHA must resolve on the remote when the reviewer clicks it.
 
@@ -111,7 +129,7 @@ Replies carry the fix commit SHA. Push first, then reply — the SHA must resolv
 git push
 ```
 
-### 7. Resolve every thread after reply + push
+### 8. Resolve every thread after reply + push
 
 Use the `resolveReviewThread` GraphQL mutation with the `thread.id` captured in step 1:
 
@@ -129,9 +147,9 @@ Order matters:
 - **Fixed threads**: `fix → push → reply → resolve`. Replying before pushing creates a broken SHA reference.
 - **Declined threads**: `reply (with rationale) → resolve`. The rationale stays in the thread history; resolution just hides it from the default "unresolved" view so the remaining work is visible.
 
-Resolve every thread this way — fix or decline — **as long as a substantive reply was posted first**. Resolution without a reply is forbidden (see Rule §8); it looks like feedback is being silenced.
+Resolve every thread this way — fix or decline — **as long as a substantive reply was posted first**. Resolution without a reply is forbidden (see Rule §9); it looks like feedback is being silenced.
 
-### 8. Never resolve without replying first
+### 9. Never resolve without replying first
 
 Resolving a thread that has no author reply is silencing feedback, regardless of whether you intended to fix it or decline it. The reply is what makes the decision transparent to the reviewer; resolution just tidies the UI.
 
@@ -215,3 +233,4 @@ mutation($id: ID!) {
 - About to decline a comment and resolve with "won't fix" and nothing else → write a rationale the reviewer can evaluate, then resolve
 - About to batch fixes across unrelated threads into a single "address review" commit → split by concern
 - Comment references a file/line that no longer exists because the diff moved → re-read the current file at `path` before assuming the feedback is stale
+- About to resolve or fix a comment on a protected path (`docs/superpowers/**`) → skip it and leave the thread open for manual handling
